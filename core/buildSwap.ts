@@ -1,6 +1,6 @@
-import { customerAccountAddress, merchantUSDCTokenAccount } from './accountHandler'
+import { customerAccountAddress, merchantUSDCTokenAccount } from './accountHandler.ts'
 
-export const prepareSwap = async () => {
+export const buildSwap = async () => {
 
     const inputMint = "So11111111111111111111111111111111111111112" // will be dynamic
     const outputMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" // USDC Mint Address
@@ -45,4 +45,4 @@ export const prepareSwap = async () => {
     console.log(swapResponse);
 }
 
-prepareSwap()
+buildSwap()
