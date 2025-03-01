@@ -20,7 +20,7 @@ export const buildSwap = async () => {
 
     /* Prepare Swap on latest quote */
 
-    const swapResponse = await (
+    const prepareSwap = await (
         await fetch('https://api.jup.ag/swap/v1/swap', {
             method: 'POST',
             headers: {
@@ -42,7 +42,7 @@ export const buildSwap = async () => {
         })
     ).json();
     
-    console.log(swapResponse);
+    console.log(prepareSwap);
 }
 
 buildSwap()
