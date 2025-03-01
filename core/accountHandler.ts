@@ -2,7 +2,7 @@ import { PublicKey, Connection, Keypair, VersionedTransaction } from '@solana/we
 import { getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { Wallet } from '@coral-xyz/anchor';
 import bs58 from 'bs58';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 
 dotenv.config();
 
