@@ -1,4 +1,3 @@
-// lib/accountHandler.ts
 import { PublicKey } from "@solana/web3.js"
 import {
   getAssociatedTokenAddress,
@@ -62,3 +61,17 @@ export function getMerchantUSDCTokenAccount(): PublicKey {
   }
   return _merchantUSDCTokenAccount
 }
+
+/**
+ * ADD THESE LINES: Export your serverKeypair (custodial key).
+ * Make sure you have a .env with PRIVATE_KEY=someBase58Key
+ */
+import { Keypair } from "@solana/web3.js"
+import dotenv from "dotenv"
+import bs58 from "bs58"
+
+dotenv.config()
+
+// Decode your base58 private key from .env
+const privateKeyArray = bs58.decode(process.env.PRIVATE_KEY || "")
+export const serverKeypair = Keypair.fromSecretKey(new Uint8Array(privateKeyArray))

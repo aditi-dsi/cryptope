@@ -114,13 +114,13 @@ export function SenderBlock({ disabled, onAmountChange }: SenderBlockProps) {
                 : "hover:bg-[#ff6b47]/10"
             )}
           >
-            <div className="relative h-6 w-6">
+            <div className="h-6 w-6 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
               <Image
                 src={selectedToken.icon || "/placeholder.svg"}
                 alt={selectedToken.name}
                 width={24}
                 height={24}
-                className="rounded-full object-contain"
+                className=" object-cover"
               />
             </div>
             <span className="text-white">{selectedToken.symbol}</span>
