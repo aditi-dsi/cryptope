@@ -8,14 +8,14 @@ import { getSenderPublicKey, getMerchantUSDCTokenAccount } from "./accountHandle
  * @returns The Jupiter swap transaction object (includes transaction in base64, etc.)
  */
 export async function buildSwap(inputMint: string, outputMint: string, amount: number) {
-  // 1) Fetch a quote from Jupiter
+  // Fetch a quote from Jupiter
   const quoteUrl = `https://api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=50&restrictIntermediateTokens=true&swapMode=ExactOut`
   const quoteResponse = await fetch(quoteUrl)
   const getSwapQuote = await quoteResponse.json()
 
   console.log("Jupiter Quote Response:", JSON.stringify(getSwapQuote, null, 2))
 
-  // 2) Prepare the swap transaction
+  // Prepare the swap transaction
   // We'll use the dynamically set addresses from accountHandler
   const userPublicKey = getSenderPublicKey().toString()
   const destinationTokenAccount = getMerchantUSDCTokenAccount().toString()

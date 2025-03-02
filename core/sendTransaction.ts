@@ -1,39 +1,55 @@
-import { VersionedTransaction } from "@solana/web3.js";
-import { prepareSwap } from "./buildSwap.js";
-import { customerAccountAddress } from "./accountHandler.js";
-import { connection } from "./rpcConnection.js";
+import { VersionedTransaction } from "@solana/web3.js"
+import { buildSwap } from "./buildSwap.js"
+import { connection } from "./rpcConnection.js"
+import { serverKeypair } from "./accountHandler.js" 
+// ^ Replace with whatever you actually export, e.g. `customerAccountAddress.payer`
 
-export const sendTransaction = async() => {
-    
-    try {
-        const transactionBase64 = prepareSwap.swapTransaction
-        const transactionBytes = new Uint8Array(Buffer.from(transactionBase64, 'base64'));
-        
-        const transaction = VersionedTransaction.deserialize(transactionBytes);
-        
-        transaction.sign([customerAccountAddress.payer]);
-        
-        const rawTransaction = transaction.serialize();
-    
-        const signature = await connection.sendRawTransaction(rawTransaction, {
-            maxRetries: 10,
-            preflightCommitment: "finalized",
-        });
-
-        console.log(signature)
-          
-        const confirmation = await connection.getSignatureStatus(signature, {
-            "searchTransactionHistory": true
-          })  
-        
-        if (confirmation.value?.err) {
-            throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}\nhttps://solscan.io/${signature}/`);
-        } else console.log(`Transaction successful: https://solscan.io/tx/${signature}/`);
-        
-    } catch (error) {
-        console.error('Error signing or sending the transaction:', error);
+/**
+ * Custodial function that builds, signs, and sends a Jupiter swap transaction.
+ * 
+ * @param inputMint  The mint address of the token being sent
+ * @param outputMint The mint address of the token to receive
+ * @param amount     The amount of the input token in its smallest unit (lamports, etc.)
+ */
+export async function sendTransaction(inputMint: string, outputMint: string, amount: number) {
+  try {
+    // Build swap transaction (await the async call)
+    const { swapTransaction } = await buildSwap(inputMint, outputMint, amount)
+    if (!swapTransaction) {
+      throw new Error("No swapTransaction returned from buildSwap.")
     }
 
-}
+    // Decode base64 transaction from Jupiter
+    const transactionBytes = new Uint8Array(Buffer.from(swapTransaction, "base64"))
+    const transaction = VersionedTransaction.deserialize(transactionBytes)
 
-sendTransaction()
+    // Sign in with server's Keypair (custodial approach)
+    transaction.sign([serverKeypair])
+
+    // Send raw transaction
+    const rawTransaction = transaction.serialize()
+    const signature = await connection.sendRawTransaction(rawTransaction, {
+      maxRetries: 10,
+      preflightCommitment: "finalized",
+    })
+
+    console.log("Transaction signature:", signature)
+
+    // Confirm status
+    const { value: status } = await connection.getSignatureStatus(signature, {
+      searchTransactionHistory: true,
+    })
+    if (status?.err) {
+      throw new Error(
+        `Transaction failed: ${JSON.stringify(status.err)}\n` +
+        `https://solscan.io/tx/${signature}`
+      )
+    }
+
+    console.log(`Transaction successful: https://solscan.io/tx/${signature}`)
+    return signature
+  } catch (error) {
+    console.error("Error signing or sending the transaction:", error)
+    throw error
+  }
+}

@@ -9,16 +9,13 @@ import * as dotenv from "dotenv"
 
 dotenv.config()
 
-
-// 1) Export a Keypair from your private key in .env
-// Make sure process.env.PRIVATE_KEY is set to the base58-encoded private key
 const privateKeyArray = bs58.decode(process.env.PRIVATE_KEY || "")
 export const serverKeypair = Keypair.fromSecretKey(new Uint8Array(privateKeyArray))
 
-// 2) USDC Mint remains constant (mainnet)
+// USDC Mint remains constant (mainnet)
 export const USDC_MINT = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
 
-// 3) We'll store these addresses in module-level variables:
+// We'll store these addresses in module-level variables:
 let _senderPublicKey: PublicKey | null = null
 let _merchantPublicKey: PublicKey | null = null
 let _merchantUSDCTokenAccount: PublicKey | null = null
