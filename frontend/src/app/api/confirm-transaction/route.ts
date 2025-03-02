@@ -1,6 +1,4 @@
-// File: app/api/confirm-transaction/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { Connection } from '@solana/web3.js';
 
 interface RequestBody {
   signature: string;
@@ -18,25 +16,29 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Log the transaction, update a database, etc.
     console.log(`Transaction confirmed with signature: ${signature}`);
     
-    // You could also confirm the transaction status on-chain if needed
-    const connection = new Connection(process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com');
-    
-    // Optional: wait for confirmation
-    // const confirmation = await connection.confirmTransaction(signature);
     
     return NextResponse.json({
       success: true,
       message: 'Transaction recorded successfully',
     });
     
-  } catch (error: any) {
-    console.error('Error confirming transaction:', error);
+  } catch (error: unknown) {
+    console.error("Error confirming transaction:", error);
+  
+    // Default fallback
+    let errorMessage = "Failed to confirm transaction";
+  
+    // Narrow to Error, so we can safely use .message
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+  
     return NextResponse.json(
-      { error: error.message || 'Failed to confirm transaction' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
+  
 }

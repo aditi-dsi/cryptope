@@ -11,13 +11,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // For now, just log or store them
     console.log("Set addresses:", { senderPubKey, merchantPubKey })
 
-    // Return success
     return NextResponse.json({ success: true })
-  } catch (err: any) {
-    console.error("Error in /api/set-addresses route:", err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  }catch (err: unknown) {
+    console.error("Error in /api/set-addresses route:", err);
+    
+    let errorMessage = "An unknown error occurred";
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    }
+  
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
+  
 }

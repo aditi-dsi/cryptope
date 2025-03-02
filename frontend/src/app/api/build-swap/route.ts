@@ -32,8 +32,16 @@ export async function POST(request: Request) {
       success: true,
       swapTransaction: fakeBase64,
     })
-  } catch (err: any) {
-    console.error("Error in /api/build-swap route:", err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err: unknown) {
+    let errorMessage = "Unknown error occurred";
+  
+    // Narrow to Error
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    }
+    
+    console.error("Error in /api/build-swap route:", err);
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
+  
 }

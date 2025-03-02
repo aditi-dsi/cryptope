@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { ArrowDown } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
 import type { WalletName } from "@/lib/wallet-utils";
@@ -8,7 +8,7 @@ import { SenderBlock } from "./sender/sender-block";
 import { MerchantSelector } from "./merchant/merchant-block";
 import { WalletModal } from "../navbar/connect-wallet-sheet";
 import type { Token } from "@/lib/token-utils";
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { Connection, Transaction } from "@solana/web3.js";
 
 // Import your notification store
 import { useNotificationStore } from "@/stores/notification-store";
@@ -17,6 +17,20 @@ interface Merchant {
   id: string;
   name: string;
   address: string;
+}
+
+// Example minimal type for quote data from aggregator
+// Adjust fields as needed if you know the real shape.
+interface QuoteData {
+  inAmount?: string;
+  outAmount?: string;
+  routePlan?: Array<{
+    swapInfo?: {
+      feeAmount?: string;
+    };
+    // add other route properties if needed
+  }>;
+  // etc. if you have more fields
 }
 
 export function PaymentBlock() {
@@ -48,7 +62,8 @@ export function PaymentBlock() {
   const [fee, setFee] = useState<string>("--");
 
   // aggregator raw data
-  const [quoteData, setQuoteData] = useState<any>(null);
+  // Replaced `any` with `QuoteData | null`
+  const [quoteData, setQuoteData] = useState<QuoteData | null>(null);
 
   // Polling
   const pollRef = useRef<NodeJS.Timeout | null>(null);
@@ -56,23 +71,24 @@ export function PaymentBlock() {
   // Must select merchant before enabling the sender block
   const isMerchantSelected = !!merchantAddress;
 
-  // Debug info (removed console.log)
+  // You had a debugging useEffect. It's fine to keep or remove.
+  // We'll keep it but remove the console logs to avoid spam.
   useEffect(() => {
-    // Example of what was previously logged:
-    // console.log("Wallet state:", { isConnected, publicKey, connectedWallet, canSign: !!signTransaction, ... });
+    // For example: console.log("Wallet state: ", { isConnected, publicKey, ... })
   }, [isConnected, publicKey, connectedWallet, signTransaction, sendTransaction]);
 
   const handleWalletConnect = async (walletName: WalletName) => {
     try {
-      // console.log("Attempting to connect to wallet:", walletName);
       await connect(walletName);
       setIsWalletModalOpen(false);
     } catch (error) {
       console.error("Failed to connect from PaymentBlock:", error);
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to connect wallet";
       addNotification({
         type: "error",
         title: "Connection Error",
-        message: error instanceof Error ? error.message : "Failed to connect wallet",
+        message: errorMsg,
       });
     }
   };
@@ -81,57 +97,31 @@ export function PaymentBlock() {
     setMerchantAddress(merchant.address || "");
   };
 
-  // Debounce + Poll for quotes
-  useEffect(() => {
-    if (!isMerchantSelected || !senderAmount || parseFloat(senderAmount) <= 0 || !selectedToken) {
-      stopPolling();
-      resetQuoteState();
-      return;
-    }
-    const timer = setTimeout(() => {
-      fetchQuoteAndStartPolling();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [senderAmount, selectedToken, isMerchantSelected]);
-
-  useEffect(() => {
-    return () => {
-      stopPolling();
-    };
-  }, []);
-
-  function stopPolling() {
+  // Helper to stop polling
+  const stopPolling = useCallback(() => {
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
-  }
+  }, []);
 
-  function resetQuoteState() {
+  // Helper to reset quote UI state
+  const resetQuoteState = useCallback(() => {
     setQuoteData(null);
     setMerchantTokenAmount("--");
     setRate("--");
     setFee("--");
-  }
+  }, []);
 
-  function fetchQuoteAndStartPolling() {
-    fetchQuote();
-    stopPolling();
-    pollRef.current = setInterval(() => {
-      fetchQuote();
-    }, 5000);
-  }
-
-  async function fetchQuote() {
+  // Fetch quote from /api/get-quote
+  const fetchQuote = useCallback(async () => {
     try {
       if (!selectedToken) return;
       setIsQuoteLoading(true);
 
       const decimals = selectedToken.decimals;
       const rawAmount = Math.floor(parseFloat(senderAmount) * 10 ** decimals);
-
       const outputMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-      // console.log("Fetching aggregator quote with:", { inputMint: selectedToken.mint, outputMint, amount: rawAmount });
 
       const res = await fetch("/api/get-quote", {
         method: "POST",
@@ -147,8 +137,6 @@ export function PaymentBlock() {
       }
 
       const data = await res.json();
-      // console.log("Full aggregator response from /api/get-quote:", data);
-
       if (!data.quoteData) {
         console.warn("No quoteData returned:", data);
         resetQuoteState();
@@ -157,7 +145,7 @@ export function PaymentBlock() {
 
       setQuoteData(data.quoteData);
 
-      const qd = data.quoteData;
+      const qd = data.quoteData as QuoteData;
       if (!qd.inAmount || !qd.outAmount) {
         console.warn("Missing inAmount/outAmount in quoteData:", qd);
         resetQuoteState();
@@ -169,11 +157,13 @@ export function PaymentBlock() {
       const outToken = outLamports / 10 ** 6;
       setMerchantTokenAmount(outToken.toFixed(6));
 
+      // Convert inAmount
       const inLamports = parseFloat(qd.inAmount);
       const inToken = inLamports / 10 ** decimals;
       const ratio = outToken / inToken;
       setRate(`1 ${selectedToken.symbol} ~ ${ratio.toFixed(6)} USDC`);
 
+      // If aggregator includes fee info in routePlan
       const feeAmount = qd.routePlan?.[0]?.swapInfo?.feeAmount;
       if (feeAmount) {
         const feeLamports = parseFloat(feeAmount);
@@ -188,10 +178,46 @@ export function PaymentBlock() {
     } finally {
       setIsQuoteLoading(false);
     }
-  }
+  }, [selectedToken, senderAmount, resetQuoteState]);
+
+  // Helper to fetch quote + start polling
+  const fetchQuoteAndStartPolling = useCallback(() => {
+    fetchQuote();
+    stopPolling();
+    pollRef.current = setInterval(() => {
+      fetchQuote();
+    }, 5000);
+  }, [fetchQuote, stopPolling]);
+
+  // Debounce + Poll effect
+  useEffect(() => {
+    if (!isMerchantSelected || !senderAmount || parseFloat(senderAmount) <= 0 || !selectedToken) {
+      stopPolling();
+      resetQuoteState();
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetchQuoteAndStartPolling();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    isMerchantSelected,
+    senderAmount,
+    selectedToken,
+    resetQuoteState,
+    fetchQuoteAndStartPolling,
+    stopPolling,
+  ]);
+
+  // Cleanup effect for polling
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, [stopPolling]);
 
   // 4) PROCEED TO PAY
-  async function handleProceedToPay() {
+  const handleProceedToPay = useCallback(async () => {
     if (!publicKey || !merchantAddress) {
       addNotification({
         type: "error",
@@ -227,8 +253,6 @@ export function PaymentBlock() {
     setIsProcessing(true);
 
     try {
-      // console.log("Starting payment process:", { ... });
-
       // (1) send addresses
       const addressResponse = await fetch("/api/set-addresses", {
         method: "POST",
@@ -275,8 +299,7 @@ export function PaymentBlock() {
       try {
         const transactionBuffer = Buffer.from(txResponseData.serializedTransaction, "base64");
         transaction = Transaction.from(transactionBuffer);
-        // console.log("Transaction instructions:", transaction.instructions.length);
-      } catch (deserializeErr) {
+      } catch {
         throw new Error("Invalid transaction format from server");
       }
 
@@ -286,7 +309,6 @@ export function PaymentBlock() {
         "confirmed"
       );
       const signature = await sendTransaction(transaction, connection);
-      // console.log("Transaction signature:", signature);
 
       // (5) confirm
       await fetch("/api/confirm-transaction", {
@@ -301,26 +323,42 @@ export function PaymentBlock() {
         title: "Transaction Success",
         message: `Payment complete! Tx signature: ${signature}`,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error in handleProceedToPay:", err);
 
-      if (err.message?.includes("User rejected") || err.message?.includes("cancelled")) {
-        addNotification({
-          type: "error",
-          title: "Transaction Cancelled",
-          message: "Transaction was cancelled by the user.",
-        });
-      } else {
-        addNotification({
-          type: "error",
-          title: "Transaction Error",
-          message: err.message || "Something went wrong. Check console for details.",
-        });
+      let errorMsg = "Something went wrong. Check console for details.";
+      if (err instanceof Error) {
+        if (err.message.includes("User rejected") || err.message.includes("cancelled")) {
+          addNotification({
+            type: "error",
+            title: "Transaction Cancelled",
+            message: "Transaction was cancelled by the user.",
+          });
+          setIsProcessing(false);
+          return;
+        }
+        errorMsg = err.message;
       }
+
+      addNotification({
+        type: "error",
+        title: "Transaction Error",
+        message: errorMsg,
+      });
     } finally {
       setIsProcessing(false);
     }
-  }
+  }, [
+    publicKey,
+    merchantAddress,
+    sendTransaction,
+    selectedToken,
+    senderAmount,
+    addNotification,
+    connectedWallet,
+    isConnected,
+    signTransaction,
+  ]);
 
   // 5) Main Button config
   const getButtonConfig = () => {
@@ -406,10 +444,9 @@ export function PaymentBlock() {
             </div>
           </>
         )}
-
-       
       </div>
 
+      {/* Wallet Modal */}
       <WalletModal
         isOpen={isWalletModalOpen}
         onClose={() => setIsWalletModalOpen(false)}

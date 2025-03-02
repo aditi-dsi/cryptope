@@ -126,8 +126,7 @@ export function AddMerchantModal({ isOpen, onClose, onAdd }: AddMerchantModalPro
             placeholder="Enter USDC token account address"
           />
           <p className="text-xs text-zinc-500">
-            Enter the merchant's SPL account address where they will receive payments
-          </p>
+          {" Enter the merchant's SPL account address where they will receive payments"}</p>
         </div>
 
         {error && <p className="text-sm text-red-500">{error}</p>}

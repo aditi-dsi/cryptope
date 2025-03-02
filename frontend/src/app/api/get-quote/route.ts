@@ -1,11 +1,5 @@
 import { NextResponse } from "next/server";
 
-/**
- * POST /api/get-quote
- * Expects JSON body: { inputMint, outputMint, amount }
- * Calls Jupiter aggregator at https://api.jup.ag/swap/v1/quote
- * Returns { success: true, quoteData: { ... } }
- */
 export async function POST(request: Request) {
   try {
     const { inputMint, outputMint, amount } = await request.json();
@@ -18,18 +12,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Construct the Jupiter quote URL safely using the WHATWG URL API
     const jupiterBaseUrl = "https://api.jup.ag";
     const urlObj = new URL("/swap/v1/quote", jupiterBaseUrl);
 
     urlObj.searchParams.set("inputMint", inputMint);
     urlObj.searchParams.set("outputMint", outputMint);
     urlObj.searchParams.set("amount", String(amount));
-    urlObj.searchParams.set("slippageBps", "50"); // or your preferred slippage
+    urlObj.searchParams.set("slippageBps", "50"); 
 
     console.log("Calling Jupiter aggregator with URL:", urlObj.toString());
 
-    // Fetch from Jupiter aggregator
     const response = await fetch(urlObj.toString());
     if (!response.ok) {
       const errorText = await response.text();
@@ -38,20 +30,22 @@ export async function POST(request: Request) {
       );
     }
 
-    // Parse the aggregator quote data
     const quoteData = await response.json();
     console.log("Got aggregator quoteData:", quoteData);
 
-    // Return the quote data so the client can show estimated amounts, etc.
     return NextResponse.json({
       success: true,
       quoteData,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Error in /api/get-quote route:", err);
-    return NextResponse.json(
-      { error: err.message || "Unknown error" },
-      { status: 500 }
-    );
+  
+    let errorMessage = "Unknown error";
+    if (err instanceof Error) {
+      errorMessage = err.message;
+    }
+  
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
+  
 }

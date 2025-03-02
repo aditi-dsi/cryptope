@@ -52,22 +52,6 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
   const [recommendedWallets, setRecommendedWallets] = useState<WalletInfo[]>([])
   const [isClosing, setIsClosing] = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-    return () => setMounted(false)
-  }, [])
-
-  useEffect(() => {
-    if (isOpen && mounted) {
-      detectWallets()
-      setIsClosing(false)
-      document.body.style.overflow = "hidden"
-    }
-
-    return () => {
-      document.body.style.overflow = "unset"
-    }
-  }, [isOpen, mounted])
 
   const detectWallets = useCallback(() => {
     if (typeof window === "undefined") return
@@ -87,6 +71,24 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
       setRecommendedWallets(recommended)
     }, 100)
   }, [])
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  useEffect(() => {
+    if (isOpen && mounted) {
+      detectWallets()
+      setIsClosing(false)
+      document.body.style.overflow = "hidden"
+    }
+
+    return () => {
+      document.body.style.overflow = "unset"
+    }
+  }, [isOpen, mounted, detectWallets])
+
 
   const handleClose = useCallback(() => {
     setIsClosing(true)
