@@ -1,5 +1,3 @@
-// File: /lib/jupiter.ts
-
 import { Connection, PublicKey, Transaction, SystemProgram } from "@solana/web3.js";
 
 interface JupiterTransactionParams {
@@ -11,13 +9,42 @@ interface JupiterTransactionParams {
   connection: Connection;
 }
 
+// Define a more specific type for Jupiter routes
+interface JupiterRoute {
+  marketInfos: {
+    id: string;
+    label: string;
+    inputMint: string;
+    outputMint: string;
+    notEnoughLiquidity: boolean;
+    inAmount: string;
+    outAmount: string;
+    priceImpactPct: number;
+    lpFee: {
+      amount: string;
+      mint: string;
+      pct: number;
+    };
+    platformFee: {
+      amount: string;
+      mint: string;
+      pct: number;
+    };
+  }[];
+  amount: string;
+  otherAmountThreshold: string;
+  swapMode: string;
+  priceImpactPct: number;
+  slippageBps: number;
+}
+
 interface JupiterTransactionResult {
   transaction: Transaction;
   swapResult?: {
     inAmount: number;
     outAmount: number;
     fee: number;
-    routes?: any[];
+    routes?: JupiterRoute[];
   };
 }
 
@@ -87,6 +114,7 @@ export async function getJupiterTransaction({
         inAmount,
         outAmount,
         fee: feeAmount,
+        routes: quoteData?.routes,
       },
     };
   } catch (error) {

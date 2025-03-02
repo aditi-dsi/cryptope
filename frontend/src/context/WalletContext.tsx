@@ -1,23 +1,24 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useState, useEffect, useCallback } from "react";
 import {
-  Connection,
-  PublicKey,
-  Transaction,
-  SendOptions,
-  // TransactionSignature,
-} from "@solana/web3.js";
+  createContext,
+  useContext,
+  ReactNode,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { Connection, Transaction, SendOptions } from "@solana/web3.js";
 import type { WalletName } from "@/lib/wallet-utils";
 import { useNotificationStore } from "@/stores/notification-store";
 
-// Wallet state type for persistence
+
+
 interface WalletState {
   publicKey: string | null;
   wallet: WalletName | null;
 }
 
-// Define the context type
 interface WalletContextType {
   publicKey: string | null;
   isConnected: boolean;
@@ -26,12 +27,34 @@ interface WalletContextType {
   connect: (walletName: WalletName) => Promise<void>;
   disconnect: () => Promise<void>;
   signTransaction: ((transaction: Transaction) => Promise<Transaction>) | null;
-  sendTransaction: (
-    (transaction: Transaction, connection?: Connection, options?: SendOptions) => Promise<string>
-  ) | null;
+  sendTransaction:
+    | ((
+        transaction: Transaction,
+        connection?: Connection,
+        options?: SendOptions
+      ) => Promise<string>)
+    | null;
 }
 
-// Create the context with a default value
+// Define WalletProvider type
+interface WalletProvider {
+  connect?: () => Promise<{ publicKey?: { toString(): string } } | void>;
+  publicKey?: { toString(): string };
+  signTransaction?: (transaction: Transaction) => Promise<Transaction>;
+  signAllTransactions?: (transactions: Transaction[]) => Promise<Transaction[]>;
+  sendTransaction?: (
+    transaction: Transaction,
+    connection: Connection,
+    options?: SendOptions
+  ) => Promise<string>;
+  signAndSendTransaction?: (
+    transaction: Transaction
+  ) => Promise<{ signature?: string }>;
+  disconnect?: () => Promise<void>;
+  isPhantom?: boolean;
+  isTrust?: boolean;
+}
+
 const WalletContext = createContext<WalletContextType>({
   publicKey: null,
   isConnected: false,
@@ -43,7 +66,6 @@ const WalletContext = createContext<WalletContextType>({
   sendTransaction: null,
 });
 
-// Local storage key for persistence
 const WALLET_STATE_KEY = "wallet_state";
 
 interface WalletProviderProps {
@@ -54,16 +76,25 @@ export function WalletProvider({ children }: WalletProviderProps) {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [connecting, setConnecting] = useState<boolean>(false);
-  const [connectedWallet, setConnectedWallet] = useState<WalletName | null>(null);
-  const [signTransaction, setSignTransaction] = useState<((tx: Transaction) => Promise<Transaction>) | null>(null);
-  const [sendTransaction, setSendTransaction] = useState<(
-    (tx: Transaction, connection?: Connection, options?: SendOptions) => Promise<string>
-  ) | null>(null);
+  const [connectedWallet, setConnectedWallet] = useState<WalletName | null>(
+    null
+  );
+  const [signTransaction, setSignTransaction] = useState<
+    ((tx: Transaction) => Promise<Transaction>) | null
+  >(null);
+  const [sendTransaction, setSendTransaction] = useState<
+    | ((
+        tx: Transaction,
+        connection?: Connection,
+        options?: SendOptions
+      ) => Promise<string>)
+    | null
+  >(null);
 
-  // Get notification function from store
-  const addNotification = useNotificationStore((state) => state.addNotification);
+  const addNotification = useNotificationStore(
+    (state) => state.addNotification
+  );
 
-  // Load saved wallet state from localStorage on initial mount
   useEffect(() => {
     try {
       const savedState = localStorage.getItem(WALLET_STATE_KEY);
@@ -72,7 +103,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
         if (publicKey && wallet) {
           setPublicKey(publicKey);
           setConnectedWallet(wallet);
-          // We'll attempt reconnection below
         }
       }
     } catch (error) {
@@ -80,30 +110,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
     }
   }, []);
 
-  // Attempt reconnect if we have a saved wallet but are not currently connected
-  useEffect(() => {
-    if (connectedWallet && !isConnected) {
-      connect(connectedWallet).catch((error) => {
-        console.error("Failed to reconnect to wallet:", error);
-        // Clear wallet state if reconnection fails
-        setPublicKey(null);
-        setConnectedWallet(null);
-        setIsConnected(false);
-        clearWalletState();
-      });
-    }
-  }, [connectedWallet, isConnected]);
-
-  // Save wallet state to localStorage
-  const saveWalletState = useCallback((state: WalletState) => {
-    try {
-      localStorage.setItem(WALLET_STATE_KEY, JSON.stringify(state));
-    } catch (error) {
-      console.error("Failed to save wallet state:", error);
-    }
-  }, []);
-
-  // Clear wallet state from localStorage
   const clearWalletState = useCallback(() => {
     try {
       localStorage.removeItem(WALLET_STATE_KEY);
@@ -112,62 +118,63 @@ export function WalletProvider({ children }: WalletProviderProps) {
     }
   }, []);
 
-  /**
-   * Returns the window object for each wallet, if installed.
-   */
-  const getWalletProvider = (walletName: WalletName): any => {
+  const saveWalletState = useCallback((state: WalletState) => {
+    try {
+      localStorage.setItem(WALLET_STATE_KEY, JSON.stringify(state));
+    } catch (error) {
+      console.error("Failed to save wallet state:", error);
+    }
+  }, []);
+
+  const getWalletProvider = useCallback((walletName: WalletName): WalletProvider | null => {
     if (typeof window === "undefined") return null;
 
     switch (walletName) {
       case "Phantom":
-        return window.solana?.isPhantom ? window.solana : null;
+        return window.solana && window.solana.isPhantom ? window.solana : null;
       case "Solflare":
-        return window.solflare;
+        return window.solflare || null;
       case "Backpack":
-        // Backpack often attaches to `window.backpack.solana`
-        // But your code references `window.backpack` so let's try that first
-        return window.backpack?.solana || window.backpack || null;
+        return (window.backpack?.solana || window.backpack) || null;
       case "Trust Wallet":
-        return window.solana?.isTrust ? window.solana : null;
+        return window.solana && window.solana.isTrust ? window.solana : null;
       default:
         return null;
     }
-  };
+  }, []);
 
-  /**
-   * Connect to the chosen wallet, retrieve the public key,
-   * and set up signTransaction/sendTransaction accordingly.
-   */
-  const connect = async (walletName: WalletName) => {
+  const connect = useCallback(async (walletName: WalletName) => {
     try {
       setConnecting(true);
       const provider = getWalletProvider(walletName);
 
       console.log(`Attempting to connect to ${walletName}`, provider);
       if (!provider) {
-        throw new Error(`${walletName} wallet not found. Please install the extension or app.`);
+        throw new Error(
+          `${walletName} wallet not found. Please install the extension or app.`
+        );
       }
 
-      // Some wallets (Phantom, Backpack, Trust) respond to `provider.connect()`
-      // Others (like Solflare) need a different approach
-      let newPublicKey: string;
+      let newPublicKey: string | undefined;
 
       if (walletName === "Solflare") {
-        // Some versions of Solflare: provider.connect() returns void,
-        // and provider.publicKey is updated
-        await provider.connect();
+        if (provider.connect) {
+          await provider.connect();
+        }
         if (!provider.publicKey) {
           throw new Error("No public key found after connecting to Solflare");
         }
         newPublicKey = provider.publicKey.toString();
       } else {
-        // For Phantom, Backpack, Trust, etc.
-        // provider.connect() typically returns { publicKey: ... }
-        const response = await provider.connect();
-        newPublicKey = response.publicKey?.toString();
-        if (!newPublicKey) {
-          // Some providers attach pubkey after the fact. If not present:
-          newPublicKey = provider.publicKey?.toString();
+        let response: { publicKey?: { toString(): string } } | void = {};
+        if (provider.connect) {
+          response = await provider.connect();
+        }
+        
+        if (response && 'publicKey' in response && response.publicKey) {
+          newPublicKey = response.publicKey.toString();
+        } else if (provider.publicKey) {
+          newPublicKey = provider.publicKey.toString();
         }
       }
 
@@ -182,25 +189,23 @@ export function WalletProvider({ children }: WalletProviderProps) {
         signAndSendTransaction: !!provider.signAndSendTransaction,
       });
 
-      // Define signTransaction function (if available)
-      const signTransactionFn = async (transaction: Transaction): Promise<Transaction> => {
+      const signTransactionFn = async (
+        transaction: Transaction
+      ): Promise<Transaction> => {
         if (!provider) {
           throw new Error("No wallet provider found");
         }
         if (typeof provider.signTransaction === "function") {
           return provider.signTransaction(transaction);
         }
-        // Fallback: If a wallet only offers signAllTransactions or signAndSendTransaction,
-        // we can do a partial approach. E.g., signAllTransactions([transaction])[0].
+
         if (typeof provider.signAllTransactions === "function") {
           const [signedTx] = await provider.signAllTransactions([transaction]);
           return signedTx;
         }
-        // If a wallet simply can't sign, throw
         throw new Error(`${walletName} does not support signTransaction`);
       };
 
-      // Define sendTransaction function (try provider.sendTransaction, else fallback)
       const sendTransactionFn = async (
         transaction: Transaction,
         connection?: Connection,
@@ -210,47 +215,40 @@ export function WalletProvider({ children }: WalletProviderProps) {
           throw new Error("No wallet provider found");
         }
 
-        // Use a default connection if none provided
         const conn =
           connection ||
           new Connection(
-            process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+            process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+              "https://api.mainnet-beta.solana.com",
             "confirmed"
           );
 
         if (typeof provider.sendTransaction === "function") {
-          // Use the standard method
           return provider.sendTransaction(transaction, conn, options);
         }
 
-        // Fallback: some wallets only have signAndSendTransaction (like older Backpack or Glow)
         if (typeof provider.signAndSendTransaction === "function") {
-          // signAndSendTransaction typically returns { signature: string }
           const result = await provider.signAndSendTransaction(transaction);
           if (!result || !result.signature) {
             throw new Error("Wallet did not return a signature");
           }
-          // Optionally confirm the transaction on the client, or rely on the wallet
           return result.signature;
         }
 
         throw new Error(`${walletName} does not support sending transactions`);
       };
 
-      // Update context state
       setPublicKey(newPublicKey);
       setIsConnected(true);
       setConnectedWallet(walletName);
       setSignTransaction(() => signTransactionFn);
       setSendTransaction(() => sendTransactionFn);
 
-      // Persist in localStorage so we can attempt auto-reconnect
       saveWalletState({
         publicKey: newPublicKey,
         wallet: walletName,
       });
 
-      // Show success notification
       addNotification({
         type: "success",
         title: "Wallet Connected",
@@ -259,7 +257,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
     } catch (err) {
       console.error(`Failed to connect ${walletName}:`, err);
 
-      // Reset wallet state
       setPublicKey(null);
       setIsConnected(false);
       setConnectedWallet(null);
@@ -267,30 +264,40 @@ export function WalletProvider({ children }: WalletProviderProps) {
       setSendTransaction(null);
       clearWalletState();
 
-      // Show error notification
       addNotification({
         type: "error",
         title: "Connection Error",
-        message: err instanceof Error ? err.message : `Failed to connect to ${walletName}.`,
+        message:
+          err instanceof Error
+            ? err.message
+            : `Failed to connect to ${walletName}.`,
       });
 
       throw err;
     } finally {
       setConnecting(false);
     }
-  };
+  }, [addNotification, clearWalletState, getWalletProvider, saveWalletState]);
 
-  /**
-   * Disconnect from the current wallet
-   */
-  const disconnect = async () => {
+  useEffect(() => {
+    if (connectedWallet && !isConnected) {
+      connect(connectedWallet).catch((error) => {
+        console.error("Failed to reconnect to wallet:", error);
+        setPublicKey(null);
+        setConnectedWallet(null);
+        setIsConnected(false);
+        clearWalletState();
+      });
+    }
+  }, [connectedWallet, isConnected, clearWalletState, connect]);
+
+  const disconnect = useCallback(async () => {
     try {
       const provider = getWalletProvider(connectedWallet as WalletName);
       if (provider?.disconnect) {
         await provider.disconnect();
       }
 
-      // Reset wallet state
       setPublicKey(null);
       setIsConnected(false);
       setConnectedWallet(null);
@@ -309,10 +316,13 @@ export function WalletProvider({ children }: WalletProviderProps) {
       addNotification({
         type: "error",
         title: "Disconnect Error",
-        message: error instanceof Error ? error.message : "Failed to disconnect wallet.",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to disconnect wallet.",
       });
     }
-  };
+  }, [addNotification, clearWalletState, connectedWallet, getWalletProvider]);
 
   return (
     <WalletContext.Provider
@@ -332,7 +342,6 @@ export function WalletProvider({ children }: WalletProviderProps) {
   );
 }
 
-// Create a hook to consume the wallet context
 export function useWallet() {
   return useContext(WalletContext);
 }

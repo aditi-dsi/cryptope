@@ -1,5 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+import { Connection, PublicKey} from "@solana/web3.js";
 import { getJupiterTransaction } from "@/lib/jupiter"; // Updated below
 
 interface RequestBody {
@@ -89,13 +88,18 @@ export async function POST(req: Request) {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in create-transaction API:", error);
+  
+    let errorMessage = "Failed to create transaction";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+  
     return new Response(
-      JSON.stringify({
-        error: error.message || "Failed to create transaction",
-      }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500 }
     );
   }
+  
 }

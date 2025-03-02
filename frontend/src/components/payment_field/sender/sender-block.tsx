@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ChevronDown } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
 import { cn } from "@/lib/utils";
-import { TOKENS, type Token, numberToWords } from "@/lib/token-utils";
+import { TOKENS, type Token } from "@/lib/token-utils";
 
 interface SenderBlockProps {
   disabled?: boolean;

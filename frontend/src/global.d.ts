@@ -1,38 +1,75 @@
 // global.d.ts
 
-// Extend the Window interface so TypeScript knows about window.solana, window.solflare, etc.
+// Define transaction and connection types to avoid using 'any'
+import { Transaction, Connection, SendOptions } from "@solana/web3.js";
+
+// Extend the Window interface so TypeScript knows about wallet providers
 declare global {
-    interface Window {
+  interface Window {
+    solana?: {
+      isPhantom?: boolean;
+      isTrust?: boolean;
+      isFalcon?: boolean;
+      connect?: () => Promise<{ publicKey?: { toString(): string } } | void>;
+      disconnect?: () => Promise<void>;
+      publicKey?: { toString(): string };
+      signTransaction?: (transaction: Transaction) => Promise<Transaction>;
+      signAllTransactions?: (transactions: Transaction[]) => Promise<Transaction[]>;
+      sendTransaction?: (
+        transaction: Transaction,
+        connection: Connection,
+        options?: SendOptions
+      ) => Promise<string>;
+      signAndSendTransaction?: (
+        transaction: Transaction
+      ) => Promise<{ signature?: string }>;
+    };
+    solflare?: {
+      connect?: () => Promise<void>;
+      disconnect?: () => Promise<void>;
+      publicKey?: { toString(): string };
+      signTransaction?: (transaction: Transaction) => Promise<Transaction>;
+      signAllTransactions?: (transactions: Transaction[]) => Promise<Transaction[]>;
+      sendTransaction?: (
+        transaction: Transaction,
+        connection: Connection,
+        options?: SendOptions
+      ) => Promise<string>;
+      signAndSendTransaction?: (
+        transaction: Transaction
+      ) => Promise<{ signature?: string }>;
+    };
+    backpack?: {
       solana?: {
-        isPhantom?: boolean;
-        isTrust?: boolean;
-        // connect() often returns { publicKey: ... }
-        connect?: () => Promise<{ publicKey?: { toString(): string } }>;
-        publicKey?: { toString(): string };
-        signTransaction?: (tx: any) => Promise<any>;
-        signAllTransactions?: (txs: any[]) => Promise<any[]>;
-        sendTransaction?: (tx: any, conn: any, options?: any) => Promise<string>;
-        signAndSendTransaction?: (tx: any) => Promise<{ signature: string }>;
-      };
-      solflare?: {
-        connect?: () => Promise<void>;
+        connect?: () => Promise<{ publicKey?: { toString(): string } } | void>;
         disconnect?: () => Promise<void>;
         publicKey?: { toString(): string };
-        signTransaction?: (tx: any) => Promise<any>;
-        sendTransaction?: (tx: any, conn: any, options?: any) => Promise<string>;
+        signTransaction?: (transaction: Transaction) => Promise<Transaction>;
+        signAllTransactions?: (transactions: Transaction[]) => Promise<Transaction[]>;
+        sendTransaction?: (
+          transaction: Transaction,
+          connection: Connection,
+          options?: SendOptions
+        ) => Promise<string>;
+        signAndSendTransaction?: (
+          transaction: Transaction
+        ) => Promise<{ signature?: string }>;
       };
-      backpack?: {
-        // Some builds attach a solana object. Adjust as needed for your Backpack version:
-        solana?: {
-          connect?: () => Promise<{ publicKey?: { toString(): string } }>;
-          disconnect?: () => Promise<void>;
-          publicKey?: { toString(): string };
-          signTransaction?: (tx: any) => Promise<any>;
-          signAndSendTransaction?: (tx: any) => Promise<{ signature: string }>;
-        };
-      };
-    }
+      connect?: () => Promise<{ publicKey?: { toString(): string } } | void>;
+      disconnect?: () => Promise<void>;
+      publicKey?: { toString(): string };
+      signTransaction?: (transaction: Transaction) => Promise<Transaction>;
+      signAllTransactions?: (transactions: Transaction[]) => Promise<Transaction[]>;
+      sendTransaction?: (
+        transaction: Transaction,
+        connection: Connection,
+        options?: SendOptions
+      ) => Promise<string>;
+      signAndSendTransaction?: (
+        transaction: Transaction
+      ) => Promise<{ signature?: string }>;
+    };
   }
-  
-  export {};
-  
+}
+
+export {};
