@@ -14,8 +14,11 @@ import {
       `https://api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=50&restrictIntermediateTokens=true&swapMode=ExactOut`
     )
   ).json();
+
   
   console.log(JSON.stringify(getSwapQuote, null, 2));
+
+  
   
   /* Prepare Swap on latest quote */
   
