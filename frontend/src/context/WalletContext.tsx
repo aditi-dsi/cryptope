@@ -9,6 +9,7 @@ import React, {
   type ReactNode,
 } from "react"
 import type { WalletName } from "@/lib/wallet-utils"
+import { useNotificationStore } from "@/stores/notification-store" // <-- Import your store
 
 interface WalletContextType {
   publicKey: string | null
@@ -41,7 +42,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [connecting, setConnecting] = useState(false)
   const [connectedWallet, setConnectedWallet] = useState<WalletName | null>(null)
 
-  // Load saved wallet state from localStorage
+  const addNotification = useNotificationStore((state) => state.addNotification)
+
   useEffect(() => {
     try {
       const savedState = localStorage.getItem(WALLET_STATE_KEY)
@@ -58,7 +60,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Save wallet state to localStorage
   const saveWalletState = useCallback((state: WalletState) => {
     try {
       localStorage.setItem(WALLET_STATE_KEY, JSON.stringify(state))
@@ -75,11 +76,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  /**
-   * Connect to a chosen wallet by name.
-   * Phantom, Backpack, and Trust return publicKey from `connect()`,
-   * Solflare does NOT, so we must read `provider.publicKey` after connect().
-   */
   const connect = async (walletName: WalletName) => {
     try {
       setConnecting(true)
@@ -102,7 +98,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
             throw new Error("Solflare wallet not found")
           }
           provider = window.solflare
-          // Solflare connect does not return a `publicKey` in the response
           await provider.connect()
           if (!provider.publicKey) {
             throw new Error("No public key found in Solflare provider after connect()")
@@ -136,15 +131,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // If successful, update state
       setPublicKey(newPublicKey)
       setIsConnected(true)
       setConnectedWallet(walletName)
 
-      // Persist in localStorage
       saveWalletState({
         publicKey: newPublicKey,
         wallet: walletName,
+      })
+
+      addNotification({
+        type: "success",
+        title: "Wallet Connected",
+        message: `You have connected ${walletName}.`,
       })
     } catch (error) {
       console.error(`Failed to connect ${walletName}:`, error)
@@ -152,18 +151,24 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setIsConnected(false)
       setConnectedWallet(null)
       clearWalletState()
+
+      addNotification({
+        type: "error",
+        title: "Connection Error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to connect to wallet.",
+      })
+
       throw error
     } finally {
       setConnecting(false)
     }
   }
 
-  /**
-   * Disconnect from the currently connected wallet.
-   */
   const disconnect = async () => {
     try {
-      // We try all known providers
       const provider = window.solana || window.solflare || window.backpack
       if (provider?.disconnect) {
         await provider.disconnect()
@@ -172,8 +177,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setIsConnected(false)
       setConnectedWallet(null)
       clearWalletState()
+
+      addNotification({
+        type: "info",
+        title: "Wallet Disconnected",
+        message: "You have disconnected your wallet.",
+      })
     } catch (error) {
       console.error("Failed to disconnect wallet:", error)
+
+      addNotification({
+        type: "error",
+        title: "Disconnect Error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to disconnect from wallet.",
+      })
     }
   }
 
@@ -193,5 +213,4 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   )
 }
 
-// Export a convenient hook
 export const useWallet = () => useContext(WalletContext)

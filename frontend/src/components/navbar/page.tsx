@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-// 1. Import the ChevronDown icon from lucide-react
 import { Wallet, ChevronDown } from "lucide-react"
 
 import { WalletModal } from "./connect-wallet-sheet"
 import { useWallet } from "@/context/WalletContext"
 import { WALLET_INFO, formatAddress } from "@/lib/wallet-utils"
 import type { WalletName } from "@/lib/wallet-utils"
+import { index } from "@/assets"
 
 export default function Navbar() {
   const { isConnected, publicKey, connecting, connect, disconnect, connectedWallet } = useWallet()
@@ -17,7 +17,6 @@ export default function Navbar() {
   const [showDropdown, setShowDropdown] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // 1. Get the icon for the connected wallet
   const walletInfo = WALLET_INFO.find((w) => w.name === connectedWallet)
 
   useEffect(() => {
@@ -45,11 +44,10 @@ export default function Navbar() {
     <>
       <nav className="fixed left-0 right-0 top-0 z-40 border-b border-zinc-800 bg-black/80 px-4 py-3 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
-          {/* Logo and Brand */}
           <Link href="/" className="flex items-center gap-3">
             <div className="relative h-8 w-8">
               <Image
-                src="/logo.svg"
+                src={index.Logo}
                 alt="Cryptope"
                 width={32}
                 height={32}
@@ -60,7 +58,6 @@ export default function Navbar() {
             <span className="text-xl font-semibold text-white">CryptoPe</span>
           </Link>
 
-          {/* Wallet Button or Connected State */}
           {!isConnected ? (
             <button
               onClick={() => setIsWalletModalOpen(true)}
@@ -76,7 +73,6 @@ export default function Navbar() {
                 onClick={() => setShowDropdown(!showDropdown)}
                 className="flex items-center gap-2 rounded-lg border border-[#ff6b47]/20 bg-transparent px-4 py-2 text-sm font-medium text-[#ff6b47] transition-all duration-200 hover:border-[#ff6b47]/40 hover:bg-[#ff6b47]/10"
               >
-                {/* Wallet icon */}
                 <div className="relative h-5 w-5 overflow-hidden rounded-full bg-[#ff6b47]/10">
                   <Image
                     src={walletInfo?.icon || "/images/wallet-default.png"}
@@ -97,7 +93,6 @@ export default function Navbar() {
                 </div>
               </button>
 
-              {/* Dropdown */}
               {showDropdown && (
                 <div className="absolute right-0 mt-2 w-40 rounded-lg border border-[#ff6b47]/20 bg-zinc-950 p-1 shadow-lg">
                   <button

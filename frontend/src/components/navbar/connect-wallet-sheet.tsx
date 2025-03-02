@@ -13,7 +13,6 @@ interface WalletButtonProps {
   onConnect: (walletName: WalletName, installed: boolean) => void
 }
 
-// Separate WalletButton component to handle individual wallet rendering
 const WalletButton = React.memo(({ wallet, installed, onConnect }: WalletButtonProps) => {
   const [imageError, setImageError] = useState(false)
 
@@ -53,13 +52,11 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
   const [recommendedWallets, setRecommendedWallets] = useState<WalletInfo[]>([])
   const [isClosing, setIsClosing] = useState(false)
 
-  // Handle mounting state
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
 
-  // Handle modal open/close and wallet detection
   useEffect(() => {
     if (isOpen && mounted) {
       detectWallets()
@@ -72,7 +69,6 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
     }
   }, [isOpen, mounted])
 
-  // Detect available wallets
   const detectWallets = useCallback(() => {
     if (typeof window === "undefined") return
 
@@ -92,7 +88,6 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
     }, 100)
   }, [])
 
-  // Handle modal close with animation
   const handleClose = useCallback(() => {
     setIsClosing(true)
     setTimeout(() => {
@@ -100,7 +95,6 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
     }, 200)
   }, [onClose])
 
-  // Handle wallet connection or installation
   const handleConnect = useCallback(
     (walletName: WalletName, installed: boolean) => {
       if (!installed) {
@@ -113,7 +107,6 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
     [onConnect, handleClose],
   )
 
-  // Handle escape key press
   useEffect(() => {
     const handleEscapeKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && isOpen) {
@@ -127,15 +120,12 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
     }
   }, [isOpen, handleClose])
 
-  // Don't render anything until mounted
   if (!mounted) return null
 
-  // Don't render if not open
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-50">
-      {/* Backdrop */}
       <div
         className={`fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-200
           ${isClosing ? "opacity-0" : "opacity-100"}`}
@@ -143,7 +133,6 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
         aria-hidden="true"
       />
 
-      {/* Modal */}
       <div
         className="fixed inset-0 flex items-center justify-center p-4"
         role="dialog"
@@ -154,7 +143,6 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
           className={`w-full max-w-md transform rounded-lg border border-[#ff6b47]/20 bg-zinc-950 p-6 shadow-xl transition-all duration-200
             ${isClosing ? "scale-95 opacity-0" : "scale-100 opacity-100"}`}
         >
-          {/* Header */}
           <div className="mb-6 flex items-center justify-between">
             <h2 id="wallet-modal-title" className="text-xl font-bold text-white">
               Connect a Wallet
@@ -168,7 +156,6 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
             </button>
           </div>
 
-          {/* Installed Wallets Section */}
           {installedWallets.length > 0 && (
             <div className="mb-6">
               <h3 className="mb-3 text-sm font-semibold text-zinc-400">Installed Wallets</h3>
@@ -180,7 +167,6 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
             </div>
           )}
 
-          {/* Recommended Wallets Section */}
           {recommendedWallets.length > 0 && (
             <div className="mb-6">
               <h3 className="mb-3 text-sm font-semibold text-zinc-400">More Wallets</h3>
@@ -192,14 +178,12 @@ export function WalletModal({ isOpen, onClose, onConnect }: WalletModalProps) {
             </div>
           )}
 
-          {/* No Wallets Found Message */}
           {installedWallets.length === 0 && recommendedWallets.length === 0 && (
             <div className="py-8 text-center text-zinc-400">
               No wallets detected. Please refresh the page or try again.
             </div>
           )}
 
-          {/* Footer */}
           <div className="flex items-center justify-between text-sm">
             <span className="text-zinc-400">New to Solana wallets?</span>
             <a

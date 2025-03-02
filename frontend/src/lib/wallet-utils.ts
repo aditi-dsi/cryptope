@@ -33,7 +33,6 @@ export const formatAddress = (address: string | null) => {
   return `${address.slice(0, 4)}...${address.slice(-4)}`
 }
 
-// Default fallback image
 const DEFAULT_WALLET_ICON = assets.Default_Wallet_Icon
 
 export const WALLET_INFO: WalletInfo[] = [
