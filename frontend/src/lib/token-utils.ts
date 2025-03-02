@@ -1,40 +1,72 @@
 import { index } from "@/assets"
 
-// Token type definition
 export interface Token {
-    symbol: string
-    name: string
-    icon: string
-    decimals: number
-  }
-  
-  // Token data
-  export const TOKENS: Token[] = [
-    {
-      symbol: "SOL",
-      name: "Solana",
-      icon: index.Solana_Logo.src,
-      decimals: 9,
-    },
-    {
-      symbol: "USDC",
-      name: "USD Coin",
-      icon: index.Usdc_Logo.src,
-      decimals: 6,
-    },
-    {
-      symbol: "ETH",
-      name: "Ethereum",
-      icon: index.Eth_Logo.src,
-      decimals: 18,
-    },
-    {
-      symbol: "BTC",
-      name: "Bitcoin",
-      icon: index.Bitcoin_Logo.src,
-      decimals: 8,
-    },
-  ]
+  symbol: string
+  name: string
+  icon: string
+  decimals: number
+  mint: string        
+}
+
+export const TOKENS: Token[] = [
+  {
+    symbol: "SOL",
+    name: "Solana",
+    icon: index.Solana_Logo.src,
+    decimals: 9,
+    mint: "So11111111111111111111111111111111111111112",
+  },
+  {
+    symbol: "JupSOL",
+    name: "JupSOL",
+    icon: index.jupSol_Logo.src,
+    decimals: 9,
+    mint: "jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v",
+  },
+  {
+    symbol: " Melania",
+    name: "JupSOL",
+    icon: index.melania_Logo.src,
+    decimals: 6,
+    mint: "FUAfBo2jgks6gB4Z4LfZkqSZgzNucisEHqnNebaRxM1P",
+  },
+  {
+    symbol: "Trump",
+    name: "Trump",
+    icon: index.trump_Logo.src,
+    decimals: 6,
+    mint: "6p6xgHyF7AeE6TZkSmFsko444wqoP15icUSqi2jfGiPN",
+  },
+  {
+    symbol: "USDT",
+    name: "USDT",
+    icon: index.Usdt_Logo.src,
+    decimals: 6,
+    mint: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+  },
+  {
+    symbol: "WBTC",
+    name: "Wrapped-Bitcoin",
+    icon: index.Wbtc_Logo.src,
+    decimals: 8,
+    mint: "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
+  },
+  {
+    symbol: "WETH",
+    name: "Wrapped-Eth",
+    icon: index.Weth_Logo.src,
+    decimals: 8,
+    mint: "7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs",
+  },
+  {
+    symbol: "WIF",
+    name: "WIF",
+    icon: index.WIF_Logo.src,
+    decimals: 6,
+    mint: "EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm",
+  },
+];
+
   
   // Function to convert number to words
   export function numberToWords(num: number): string {
