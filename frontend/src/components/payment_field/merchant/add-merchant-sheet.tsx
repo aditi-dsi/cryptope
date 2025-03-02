@@ -114,7 +114,7 @@ export function AddMerchantModal({ isOpen, onClose, onAdd }: AddMerchantModalPro
 
         <div className="space-y-2">
           <label htmlFor="address" className="block text-sm text-zinc-400">
-            USDC Account Address
+            Merchant Account Address
           </label>
           <input
             id="address"
@@ -126,7 +126,7 @@ export function AddMerchantModal({ isOpen, onClose, onAdd }: AddMerchantModalPro
             placeholder="Enter USDC token account address"
           />
           <p className="text-xs text-zinc-500">
-            Enter the merchant's USDC SPL token account address where they will receive payments
+            Enter the merchant's SPL account address where they will receive payments
           </p>
         </div>
 

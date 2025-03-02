@@ -13,6 +13,12 @@ interface Merchant {
   address: string
 }
 
+interface MerchantSelectorProps {
+  onMerchantSelected?: (merchant: Merchant) => void
+  merchantAmount?: string // e.g. "144.06"
+  loading?: boolean       // whether to show skeleton
+}
+
 const DEFAULT_MERCHANTS: Merchant[] = [
   {
     id: "1",
@@ -26,7 +32,11 @@ const DEFAULT_MERCHANTS: Merchant[] = [
   },
 ]
 
-export function MerchantSelector() {
+export function MerchantSelector({
+  onMerchantSelected,
+  merchantAmount = "--",
+  loading = false,
+}: MerchantSelectorProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedMerchant, setSelectedMerchant] = useState<Merchant | null>(null)
@@ -34,10 +44,8 @@ export function MerchantSelector() {
   const dropdownRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  // Handle click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Check if click is outside both the dropdown and the button
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(event.target as Node) &&
@@ -51,13 +59,12 @@ export function MerchantSelector() {
     if (isDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside)
     }
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [isDropdownOpen])
 
-  // Fixed USDC token
+  // USDC
   const fixedToken = {
     symbol: "USDC",
     name: "USD Coin",
@@ -73,11 +80,9 @@ export function MerchantSelector() {
   }, [])
 
   const handleAddMerchant = (merchant: Omit<Merchant, "id">) => {
-    // Check for duplicate name in both default and stored merchants
     const isDuplicateName = merchants.some(
-      (existingMerchant) => existingMerchant.name.toLowerCase() === merchant.name.toLowerCase(),
+      (existing) => existing.name.toLowerCase() === merchant.name.toLowerCase()
     )
-
     if (isDuplicateName) {
       throw new Error("A merchant with this name already exists")
     }
@@ -93,7 +98,14 @@ export function MerchantSelector() {
     localStorage.setItem("merchants", JSON.stringify(updatedMerchants))
     setMerchants([...DEFAULT_MERCHANTS, ...updatedMerchants])
     setSelectedMerchant(newMerchant)
+    onMerchantSelected?.(newMerchant)
     setIsModalOpen(false)
+  }
+
+  const handleSelectMerchant = (merchant: Merchant) => {
+    setSelectedMerchant(merchant)
+    setIsDropdownOpen(false)
+    onMerchantSelected?.(merchant)
   }
 
   const formatAddress = (address: string) => {
@@ -101,6 +113,7 @@ export function MerchantSelector() {
   }
 
   if (!selectedMerchant) {
+    // No merchant selected yet
     return (
       <div className="relative">
         <button
@@ -126,10 +139,7 @@ export function MerchantSelector() {
               {merchants.map((merchant) => (
                 <button
                   key={merchant.id}
-                  onClick={() => {
-                    setSelectedMerchant(merchant)
-                    setIsDropdownOpen(false)
-                  }}
+                  onClick={() => handleSelectMerchant(merchant)}
                   className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-[#ff6b47]/10 transition-colors"
                 >
                   <span className="text-white">{merchant.name}</span>
@@ -156,7 +166,7 @@ export function MerchantSelector() {
     )
   }
 
-  // Show merchant box UI when merchant is selected
+  // Merchant is selected
   return (
     <div className="rounded-xl border border-zinc-800 bg-[#131316] p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -184,14 +194,25 @@ export function MerchantSelector() {
 
         <div className="flex-1 text-right">
           <div className="h-[48px] flex items-center justify-end">
-            <div className="w-full px-4 text-right text-3xl font-semibold text-zinc-600">--</div>
+            {loading ? (
+              <MerchantSkeleton />
+            ) : merchantAmount !== "--" ? (
+              <div className="w-full px-4 text-right text-3xl font-semibold text-white">
+                {merchantAmount}
+              </div>
+            ) : (
+              <div className="w-full px-4 text-right text-3xl font-semibold text-zinc-600">--</div>
+            )}
           </div>
           <div className="mt-1 text-right text-xs text-zinc-400">$1</div>
         </div>
       </div>
 
       <button
-        onClick={() => setSelectedMerchant(null)}
+        onClick={() => {
+          setSelectedMerchant(null)
+          onMerchantSelected?.({ id: "", name: "", address: "" })
+        }}
         className="mt-2 w-full rounded-lg border border-zinc-800 bg-[#1E1F24] px-3 py-2 text-center text-sm text-zinc-400 hover:bg-[#ff6b47]/10 transition-colors"
       >
         Change Merchant
@@ -200,3 +221,10 @@ export function MerchantSelector() {
   )
 }
 
+function MerchantSkeleton() {
+  return (
+    <div className="w-full px-4 text-right">
+      <div className="inline-block h-6 w-16 animate-pulse rounded bg-zinc-700" />
+    </div>
+  )
+}
