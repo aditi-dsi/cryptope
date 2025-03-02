@@ -8,25 +8,46 @@ import { SenderBlock } from "./sender/sender-block";
 import { MerchantSelector } from "./merchant/merchant-block";
 import { WalletModal } from "../navbar/connect-wallet-sheet";
 import type { Token } from "@/lib/token-utils";
+import { Connection, PublicKey, Transaction } from "@solana/web3.js";
+
+// Import your notification store
+import { useNotificationStore } from "@/stores/notification-store";
+
+interface Merchant {
+  id: string;
+  name: string;
+  address: string;
+}
 
 export function PaymentBlock() {
-  const { isConnected, connect, publicKey } = useWallet();
-  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const {
+    isConnected,
+    connect,
+    publicKey,
+    signTransaction,
+    sendTransaction,
+    connectedWallet,
+  } = useWallet();
+
+  const addNotification = useNotificationStore((state) => state.addNotification);
+
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   // MERCHANT
-  const [merchantAddress, setMerchantAddress] = useState("");
+  const [merchantAddress, setMerchantAddress] = useState<string>("");
 
   // SENDER
-  const [senderAmount, setSenderAmount] = useState("");
+  const [senderAmount, setSenderAmount] = useState<string>("");
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
 
   // QUOTE UI STATES
-  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
-  const [merchantTokenAmount, setMerchantTokenAmount] = useState("--");
-  const [rate, setRate] = useState("--");
-  const [fee, setFee] = useState("--");
+  const [isQuoteLoading, setIsQuoteLoading] = useState<boolean>(false);
+  const [merchantTokenAmount, setMerchantTokenAmount] = useState<string>("--");
+  const [rate, setRate] = useState<string>("--");
+  const [fee, setFee] = useState<string>("--");
 
-  // We'll store the aggregator's raw data for debugging
+  // aggregator raw data
   const [quoteData, setQuoteData] = useState<any>(null);
 
   // Polling
@@ -35,33 +56,41 @@ export function PaymentBlock() {
   // Must select merchant before enabling the sender block
   const isMerchantSelected = !!merchantAddress;
 
-  // 1) MERCHANT & WALLET
+  // Debug info (removed console.log)
+  useEffect(() => {
+    // Example of what was previously logged:
+    // console.log("Wallet state:", { isConnected, publicKey, connectedWallet, canSign: !!signTransaction, ... });
+  }, [isConnected, publicKey, connectedWallet, signTransaction, sendTransaction]);
+
   const handleWalletConnect = async (walletName: WalletName) => {
     try {
+      // console.log("Attempting to connect to wallet:", walletName);
       await connect(walletName);
       setIsWalletModalOpen(false);
     } catch (error) {
       console.error("Failed to connect from PaymentBlock:", error);
+      addNotification({
+        type: "error",
+        title: "Connection Error",
+        message: error instanceof Error ? error.message : "Failed to connect wallet",
+      });
     }
   };
 
-  const handleMerchantSelected = (merchant: { id: string; name: string; address: string }) => {
+  const handleMerchantSelected = (merchant: Merchant) => {
     setMerchantAddress(merchant.address || "");
   };
 
-  // 2) DEBOUNCE + POLL
+  // Debounce + Poll for quotes
   useEffect(() => {
-    // If no merchant or invalid amount or no token, reset
     if (!isMerchantSelected || !senderAmount || parseFloat(senderAmount) <= 0 || !selectedToken) {
       stopPolling();
       resetQuoteState();
       return;
     }
-
     const timer = setTimeout(() => {
       fetchQuoteAndStartPolling();
     }, 500);
-
     return () => clearTimeout(timer);
   }, [senderAmount, selectedToken, isMerchantSelected]);
 
@@ -93,25 +122,16 @@ export function PaymentBlock() {
     }, 5000);
   }
 
-  // 3) FETCH QUOTE from /api/get-quote
   async function fetchQuote() {
     try {
       if (!selectedToken) return;
-
       setIsQuoteLoading(true);
 
-      // Use the token’s decimals, not hard-coded 9
       const decimals = selectedToken.decimals;
       const rawAmount = Math.floor(parseFloat(senderAmount) * 10 ** decimals);
 
-      // We'll assume user wants USDC out
       const outputMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
-
-      console.log("Fetching aggregator quote with:", {
-        inputMint: selectedToken.mint,
-        outputMint,
-        amount: rawAmount,
-      });
+      // console.log("Fetching aggregator quote with:", { inputMint: selectedToken.mint, outputMint, amount: rawAmount });
 
       const res = await fetch("/api/get-quote", {
         method: "POST",
@@ -127,13 +147,14 @@ export function PaymentBlock() {
       }
 
       const data = await res.json();
-      console.log("Full aggregator response from /api/get-quote:", data);
+      // console.log("Full aggregator response from /api/get-quote:", data);
 
       if (!data.quoteData) {
         console.warn("No quoteData returned:", data);
         resetQuoteState();
         return;
       }
+
       setQuoteData(data.quoteData);
 
       const qd = data.quoteData;
@@ -148,13 +169,11 @@ export function PaymentBlock() {
       const outToken = outLamports / 10 ** 6;
       setMerchantTokenAmount(outToken.toFixed(6));
 
-      // Rate: "1 <selectedToken.symbol> => X USDC"
       const inLamports = parseFloat(qd.inAmount);
       const inToken = inLamports / 10 ** decimals;
       const ratio = outToken / inToken;
       setRate(`1 ${selectedToken.symbol} ~ ${ratio.toFixed(6)} USDC`);
 
-      // Fee
       const feeAmount = qd.routePlan?.[0]?.swapInfo?.feeAmount;
       if (feeAmount) {
         const feeLamports = parseFloat(feeAmount);
@@ -174,37 +193,136 @@ export function PaymentBlock() {
   // 4) PROCEED TO PAY
   async function handleProceedToPay() {
     if (!publicKey || !merchantAddress) {
-      alert("Please connect wallet and select a merchant first!");
+      addNotification({
+        type: "error",
+        title: "Invalid Action",
+        message: "Please connect wallet and select a merchant first!",
+      });
+      return;
+    }
+    if (!sendTransaction) {
+      console.error("Wallet capabilities missing:", {
+        isConnected,
+        publicKey: !!publicKey,
+        signTransaction: !!signTransaction,
+        sendTransaction: !!sendTransaction,
+        walletName: connectedWallet,
+      });
+      addNotification({
+        type: "error",
+        title: "Wallet Error",
+        message: "Your wallet doesn't support sending transactions.",
+      });
+      return;
+    }
+    if (!selectedToken) {
+      addNotification({
+        type: "error",
+        title: "Token Missing",
+        message: "Please select a token to pay with.",
+      });
       return;
     }
 
+    setIsProcessing(true);
+
     try {
-      // 1) Send addresses to /api/set-addresses
-      {
-        const response = await fetch("/api/set-addresses", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            senderPubKey: publicKey,
-            merchantPubKey: merchantAddress,
-          }),
-        });
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.error || "Failed to set addresses.");
-        }
-        console.log("Set addresses success:", result);
+      // console.log("Starting payment process:", { ... });
+
+      // (1) send addresses
+      const addressResponse = await fetch("/api/set-addresses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          senderPubKey: publicKey,
+          merchantPubKey: merchantAddress,
+        }),
+      });
+      if (!addressResponse.ok) {
+        const addressError = await addressResponse.json();
+        throw new Error(addressError.error || "Failed to set addresses");
       }
 
-      // 2) Optionally call /api/get-quote again or finalize a transaction
-      alert("Successfully sent addresses and swap details to backend!");
-    } catch (err) {
+      // (2) request transaction creation
+      const decimals = selectedToken.decimals;
+      const rawAmount = Math.floor(parseFloat(senderAmount) * 10 ** decimals);
+      const outputMint = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+
+      const txInstructionsRes = await fetch("/api/create-transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          inputMint: selectedToken.mint,
+          outputMint,
+          amount: rawAmount,
+          userPublicKey: publicKey,
+          merchantPublicKey: merchantAddress,
+        }),
+      });
+
+      if (!txInstructionsRes.ok) {
+        const errorData = await txInstructionsRes.json();
+        throw new Error(errorData.error || "Failed to create transaction.");
+      }
+
+      const txResponseData = await txInstructionsRes.json();
+      if (!txResponseData.serializedTransaction) {
+        throw new Error("Transaction data is missing from server response");
+      }
+
+      // (3) deserialize the transaction
+      let transaction: Transaction;
+      try {
+        const transactionBuffer = Buffer.from(txResponseData.serializedTransaction, "base64");
+        transaction = Transaction.from(transactionBuffer);
+        // console.log("Transaction instructions:", transaction.instructions.length);
+      } catch (deserializeErr) {
+        throw new Error("Invalid transaction format from server");
+      }
+
+      // (4) present transaction
+      const connection = new Connection(
+        process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
+        "confirmed"
+      );
+      const signature = await sendTransaction(transaction, connection);
+      // console.log("Transaction signature:", signature);
+
+      // (5) confirm
+      await fetch("/api/confirm-transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature }),
+      });
+
+      // success notification
+      addNotification({
+        type: "success",
+        title: "Transaction Success",
+        message: `Payment complete! Tx signature: ${signature}`,
+      });
+    } catch (err: any) {
       console.error("Error in handleProceedToPay:", err);
-      alert("Error: see console for details.");
+
+      if (err.message?.includes("User rejected") || err.message?.includes("cancelled")) {
+        addNotification({
+          type: "error",
+          title: "Transaction Cancelled",
+          message: "Transaction was cancelled by the user.",
+        });
+      } else {
+        addNotification({
+          type: "error",
+          title: "Transaction Error",
+          message: err.message || "Something went wrong. Check console for details.",
+        });
+      }
+    } finally {
+      setIsProcessing(false);
     }
   }
 
-  // 5) Main Button
+  // 5) Main Button config
   const getButtonConfig = () => {
     if (!isConnected) {
       return {
@@ -222,6 +340,14 @@ export function PaymentBlock() {
           "w-full rounded-xl bg-[#ff6b47]/10 py-4 text-center text-lg font-medium text-[#ff6b47] hover:bg-[#ff6b47]/20 transition-colors cursor-not-allowed",
       };
     }
+    if (isProcessing) {
+      return {
+        text: "Processing...",
+        onClick: () => {},
+        className:
+          "w-full rounded-xl bg-[#ff6b47]/70 py-4 text-center text-lg font-medium text-white cursor-not-allowed",
+      };
+    }
     return {
       text: "Proceed to Pay",
       onClick: handleProceedToPay,
@@ -229,6 +355,7 @@ export function PaymentBlock() {
         "w-full rounded-xl bg-[#ff6b47] py-4 text-center text-lg font-medium text-white hover:bg-[#ff6b47]/90 transition-colors",
     };
   };
+
   const buttonConfig = getButtonConfig();
 
   return (
@@ -238,14 +365,14 @@ export function PaymentBlock() {
         <div className="relative">
           <SenderBlock
             disabled={!isMerchantSelected}
-            onAmountChange={(amt, token) => {
+            onAmountChange={(amt: string, token: Token | null) => {
               setSenderAmount(amt);
               setSelectedToken(token);
             }}
           />
           <div className="absolute -bottom-6 left-1/2 z-10 -translate-x-1/2">
             <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#ff6b47]/20 to-[#ff6b47]/20 blur-md"></div>
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-[#ff6b47]/20 to-[#ff6b47]/20 blur-md" />
               <button className="relative rounded-full bg-[#1E1F24] p-3 border border-zinc-800 transition-colors">
                 <ArrowDown className="h-5 w-5 text-white" />
               </button>
@@ -258,7 +385,7 @@ export function PaymentBlock() {
         {/* Merchant Selector */}
         <div className="mb-4">
           <MerchantSelector
-            onMerchantSelected={(m) => setMerchantAddress(m.address)}
+            onMerchantSelected={handleMerchantSelected}
             merchantAmount={merchantTokenAmount}
             loading={isQuoteLoading}
           />
@@ -279,9 +406,10 @@ export function PaymentBlock() {
             </div>
           </>
         )}
+
+       
       </div>
 
-      {/* Wallet Modal, etc. */}
       <WalletModal
         isOpen={isWalletModalOpen}
         onClose={() => setIsWalletModalOpen(false)}

@@ -204,7 +204,6 @@ export function MerchantSelector({
               <div className="w-full px-4 text-right text-3xl font-semibold text-zinc-600">--</div>
             )}
           </div>
-          <div className="mt-1 text-right text-xs text-zinc-400">$1</div>
         </div>
       </div>
 
